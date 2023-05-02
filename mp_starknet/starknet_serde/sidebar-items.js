@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeserializeCallEntrypointError","DeserializeEventError","DeserializeTransactionError"],"fn":["transaction_from_json"],"struct":["DeserializeCallEntrypoint","DeserializeEventWrapper","DeserializeTransaction"]};

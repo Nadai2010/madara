@@ -50,57 +50,79 @@
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the hash functions used in the StarkNet protocol.
-</span><span class="kw">use </span>starknet_crypto::FieldElement;
-<span class="kw">use </span>starknet_ff::FromByteSliceError;
+</span><span class="kw">use </span><span class="kw">crate</span>::execution::felt252_wrapper::Felt252Wrapper;
+<span class="kw">use </span><span class="kw">crate</span>::traits::hash::HasherT;
+<span class="kw">use </span><span class="kw">crate</span>::traits::ThreadSafeCopy;
 
 <span class="kw">pub mod </span>pedersen;
 <span class="kw">pub mod </span>poseidon;
 
-<span class="doccomment">/// The type of hash function used in the StarkNet protocol.
-</span><span class="kw">pub enum </span>HashType {
-    <span class="doccomment">/// The Poseidon hash function.
-    </span>Poseidon,
+<span class="doccomment">/// Available hashers in the StarkNet protocol.
+</span><span class="attr">#[derive(Clone, Copy, scale_codec::Encode, scale_codec::Decode, scale_info::TypeInfo)]
+#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+</span><span class="kw">pub enum </span>Hasher {
     <span class="doccomment">/// The Pedersen hash function.
-    </span>Pedersen,
+    </span>Pedersen(pedersen::PedersenHasher),
+    <span class="doccomment">/// The Poseidon hash function.
+    </span>Poseidon(poseidon::PoseidonHasher),
 }
 
-<span class="doccomment">/// Hashes two field elements using the specified hash function.
-/// # Arguments
-///
-/// * `hash_type`: The type of hash function to use.
-/// * `x`: The x coordinate
-/// * `y`: The y coordinate
-///
-/// # Returns
-///
-/// The hash of the two field elements.
-</span><span class="kw">pub fn </span>hash(hash_type: HashType, data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">32</span>] {
-    <span class="kw">match </span>hash_type {
-        HashType::Poseidon =&gt; poseidon::hash(data),
-        HashType::Pedersen =&gt; pedersen::hash(data),
+<span class="kw">impl </span>ThreadSafeCopy <span class="kw">for </span>Hasher {}
+
+<span class="doccomment">/// Implement the `HasherT` trait for the `Hasher` enum.
+</span><span class="kw">impl </span>HasherT <span class="kw">for </span>Hasher {
+    <span class="kw">fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; Felt252Wrapper {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Pedersen(p) =&gt; p.hash(data),
+            <span class="self">Self</span>::Poseidon(p) =&gt; p.hash(data),
+        }
     }
 }
 
-<span class="doccomment">/// Hashes two byte arrays using the specified hash function.
-///
+<span class="doccomment">/// Implement the `From` trait for the `Hasher` enum.
+</span><span class="macro">macro_rules! </span>into_hasher {
+    ($((<span class="macro-nonterminal">$hash_function</span>:ident, <span class="macro-nonterminal">$inner</span>:ty)),+ ) =&gt; {
+        $(
+            <span class="kw">impl </span>From&lt;<span class="macro-nonterminal">$inner</span>&gt; <span class="kw">for </span>Hasher {
+                <span class="kw">fn </span>from(item: <span class="macro-nonterminal">$inner</span>) -&gt; <span class="self">Self </span>{
+                    Hasher::<span class="macro-nonterminal">$hash_function</span>(item)
+                }
+            }
+        )+
+    };
+}
+
+<span class="macro">into_hasher! </span>{
+    (Pedersen, pedersen::PedersenHasher),
+    (Poseidon, poseidon::PoseidonHasher)
+}
+
+<span class="doccomment">/// Hashes a slice of bytes using the given hash function.
 /// # Arguments
 ///
-/// * `hash_type`: The type of hash function to use.
-/// * `x`: The x coordinate
-/// * `y`: The y coordinate
+/// * `hasher`: The hash function to use.
+/// * `data`: The data to hash.
 ///
 /// # Returns
 ///
-/// The hash of the two field elements.
-</span><span class="kw">pub fn </span>hash_field(hash_type: HashType, x: <span class="kw-2">&amp;</span>FieldElement, y: <span class="kw-2">&amp;</span>FieldElement) -&gt; <span class="prelude-ty">Result</span>&lt;FieldElement, FromByteSliceError&gt; {
-    <span class="comment">// Convert the byte arrays to field elements.
-    </span><span class="kw">let </span>x = FieldElement::to_bytes_be(x);
-    <span class="kw">let </span>y = FieldElement::to_bytes_be(y);
-    <span class="comment">// Hash the field elements.
-    </span><span class="kw">let </span>hash = hash(hash_type, [x, y].concat().as_slice());
-    <span class="comment">// Return the hash as a byte array.
-    </span>FieldElement::from_byte_slice_be(<span class="kw-2">&amp;</span>hash)
+/// The hash of the data.
+</span><span class="kw">pub fn </span>hash(hasher: Hasher, data: <span class="kw-2">&amp;</span>[u8]) -&gt; Felt252Wrapper {
+    <span class="kw">match </span>hasher {
+        Hasher::Pedersen(p) =&gt; p.hash(data),
+        Hasher::Poseidon(p) =&gt; p.hash(data),
+    }
 }
 </code></pre></div>
 </section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="mp_starknet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.69.0-nightly (34e6673a0 2023-02-25)" data-search-js="search-14421e1532aead08.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" ></div></body></html>

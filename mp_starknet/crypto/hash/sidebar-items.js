@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["HashType"],"fn":["hash","hash_field"],"mod":["pedersen","poseidon"]};
+window.SIDEBAR_ITEMS = {"enum":["Hasher"],"fn":["hash"],"mod":["pedersen","poseidon"]};

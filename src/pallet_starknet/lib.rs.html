@@ -950,6 +950,50 @@
 <a href="#950" id="950">950</a>
 <a href="#951" id="951">951</a>
 <a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A Substrate pallet implementation for Starknet, a decentralized, permissionless, and scalable
 //! zk-rollup for general-purpose smart contracts.
 //! See the [Starknet documentation](https://docs.starknet.io/) for more information.
@@ -1024,23 +1068,23 @@
 <span class="kw">use </span>mp_digest_log::MADARA_ENGINE_ID;
 <span class="kw">use </span>mp_starknet::block::{Block <span class="kw">as </span>StarknetBlock, BlockTransactions, Header <span class="kw">as </span>StarknetHeader, MaxTransactions};
 <span class="kw">use </span>mp_starknet::crypto::commitment;
-<span class="kw">use </span>mp_starknet::crypto::hash::pedersen::PedersenHasher;
 <span class="kw">use </span>mp_starknet::execution::types::{
     CallEntryPointWrapper, ClassHashWrapper, ContractAddressWrapper, ContractClassWrapper, EntryPointTypeWrapper,
+    Felt252Wrapper,
 };
 <span class="kw">use </span>mp_starknet::storage::{StarknetStorageSchemaVersion, PALLET_STARKNET_SCHEMA};
-<span class="kw">use </span>mp_starknet::traits::hash::Hasher;
+<span class="kw">use </span>mp_starknet::traits::hash::{CryptoHasherT, DefaultHasher, HasherT};
 <span class="kw">use </span>mp_starknet::transaction::types::{
-    DeclareTransaction, EventError, EventWrapper <span class="kw">as </span>StarknetEventType, InvokeTransaction, Transaction,
-    TransactionExecutionInfoWrapper, TransactionReceiptWrapper, TxType,
+    DeclareTransaction, DeployAccountTransaction, EventError, EventWrapper <span class="kw">as </span>StarknetEventType, InvokeTransaction,
+    Transaction, TransactionExecutionInfoWrapper, TransactionReceiptWrapper, TxType,
 };
-<span class="kw">use </span>sp_core::{H256, U256};
+<span class="kw">use </span>sp_core::U256;
 <span class="kw">use </span>sp_runtime::traits::UniqueSaturatedInto;
 <span class="kw">use </span>sp_runtime::DigestItem;
 <span class="kw">use </span>starknet_api::api_core::ContractAddress;
 <span class="kw">use </span>starknet_api::transaction::EventContent;
 
-<span class="kw">use </span><span class="kw">crate</span>::types::{ContractStorageKeyWrapper, NonceWrapper, StarkFeltWrapper, StorageKeyWrapper};
+<span class="kw">use </span><span class="kw">crate</span>::types::{ContractStorageKeyWrapper, NonceWrapper, StorageKeyWrapper};
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::starknet&quot;</span>;
 
@@ -1065,7 +1109,6 @@
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
-    <span class="kw">use </span>mp_starknet::transaction::types::DeployAccountTransaction;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -1080,9 +1123,9 @@
         <span class="doccomment">/// Because this pallet emits events, it depends on the runtime&#39;s definition of an event.
         </span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
         <span class="doccomment">/// How Starknet state root is calculated.
-        </span><span class="kw">type </span>StateRoot: Get&lt;U256&gt;;
+        </span><span class="kw">type </span>StateRoot: Get&lt;Felt252Wrapper&gt;;
         <span class="doccomment">/// The hashing function to use.
-        </span><span class="kw">type </span>SystemHash: Hasher;
+        </span><span class="kw">type </span>SystemHash: HasherT + DefaultHasher + CryptoHasherT;
         <span class="doccomment">/// The time idk what.
         </span><span class="kw">type </span>TimestampProvider: Time;
         <span class="doccomment">/// A configuration for base priority of unsigned transactions.
@@ -1159,7 +1202,7 @@
     /// Safe to use `Identity` as the key is already a hash.
     </span><span class="attr">#[pallet::storage]
     #[pallet::getter(<span class="kw">fn </span>block_hash)]
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>BlockHash&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, U256, H256, ValueQuery&gt;;
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>BlockHash&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, U256, Felt252Wrapper, ValueQuery&gt;;
 
     <span class="doccomment">/// Mapping from Starknet contract address to the contract&#39;s class hash.
     /// Safe to use `Identity` as the key is already a hash.
@@ -1186,7 +1229,7 @@
     </span><span class="attr">#[pallet::storage]
     #[pallet::getter(<span class="kw">fn </span>storage)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>StorageView&lt;T: Config&gt; =
-        StorageMap&lt;<span class="kw">_</span>, Identity, ContractStorageKeyWrapper, StarkFeltWrapper, ValueQuery&gt;;
+        StorageMap&lt;<span class="kw">_</span>, Identity, ContractStorageKeyWrapper, Felt252Wrapper, ValueQuery&gt;;
 
     <span class="doccomment">/// The last processed Ethereum block number for L1 messages consumption.
     /// This is used to avoid re-processing the same Ethereum block multiple times.
@@ -1222,7 +1265,7 @@
         /// Same as `contracts`, this can be used to start the chain with a set of pre-deployed
         /// contracts classes.
         </span><span class="kw">pub </span>contract_classes: Vec&lt;(ClassHashWrapper, ContractClassWrapper)&gt;,
-        <span class="kw">pub </span>storage: Vec&lt;(ContractStorageKeyWrapper, StarkFeltWrapper)&gt;,
+        <span class="kw">pub </span>storage: Vec&lt;(ContractStorageKeyWrapper, Felt252Wrapper)&gt;,
         <span class="doccomment">/// The address of the fee token.
         /// Must be set to the address of the fee token ERC20 contract.
         </span><span class="kw">pub </span>fee_token_address: ContractAddressWrapper,
@@ -1355,7 +1398,6 @@
         </span><span class="kw">pub fn </span>invoke(origin: OriginFor&lt;T&gt;, transaction: InvokeTransaction) -&gt; DispatchResult {
             <span class="comment">// This ensures that the function can only be called via unsigned transaction.
             </span>ensure_none(origin)<span class="question-mark">?</span>;
-
             <span class="comment">// Check if contract is deployed
             </span><span class="macro">ensure!</span>(ContractClassHashes::&lt;T&gt;::contains_key(transaction.sender_address), Error::&lt;T&gt;::AccountNotDeployed);
 
@@ -1366,7 +1408,7 @@
             <span class="kw">let </span>transaction: Transaction = transaction.into();
             <span class="kw">let </span>call_info = transaction.execute(
                 <span class="kw-2">&amp;mut </span>BlockifierStateAdapter::&lt;T&gt;::default(),
-                block,
+                block.clone(),
                 TxType::Invoke,
                 <span class="prelude-val">None</span>,
                 fee_token_address,
@@ -1395,7 +1437,9 @@
                         events: BoundedVec::try_from(events).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::ReachedBoundedVecLimit)<span class="question-mark">?</span>,
                         transaction_hash: transaction.hash,
                         tx_type: TxType::Invoke,
-                        actual_fee: U256::from(actual_fee.<span class="number">0</span>),
+                        actual_fee: actual_fee.<span class="number">0</span>.into(),
+                        block_hash: block.header().hash(T::SystemHash::hasher()), <span class="comment">// unwrap to check.
+                        </span>block_number: block.header().block_number.as_u64(),
                     }
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -1453,7 +1497,7 @@
             <span class="comment">// Execute transaction
             </span><span class="kw">let </span>call_info = transaction.execute(
                 <span class="kw-2">&amp;mut </span>BlockifierStateAdapter::&lt;T&gt;::default(),
-                block,
+                block.clone(),
                 TxType::Declare,
                 <span class="prelude-val">Some</span>(contract_class),
                 fee_token_address,
@@ -1482,7 +1526,9 @@
                         events: BoundedVec::try_from(events).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::ReachedBoundedVecLimit)<span class="question-mark">?</span>,
                         transaction_hash: transaction.hash,
                         tx_type: TxType::Declare,
-                        actual_fee: U256::from(actual_fee.<span class="number">0</span>),
+                        block_hash: block.header().hash(T::SystemHash::hasher()),
+                        block_number: block.header().block_number.as_u64(),
+                        actual_fee: actual_fee.<span class="number">0</span>.into(),
                     }
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -1535,7 +1581,7 @@
             <span class="comment">// Execute transaction
             </span><span class="kw">let </span>call_info = transaction.execute(
                 <span class="kw-2">&amp;mut </span>BlockifierStateAdapter::&lt;T&gt;::default(),
-                block,
+                block.clone(),
                 TxType::DeployAccount,
                 <span class="prelude-val">None</span>,
                 fee_token_address,
@@ -1564,7 +1610,9 @@
                         events: BoundedVec::try_from(events).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::ReachedBoundedVecLimit)<span class="question-mark">?</span>,
                         transaction_hash: transaction.hash,
                         tx_type: TxType::DeployAccount,
-                        actual_fee: U256::from(actual_fee.<span class="number">0</span>),
+                        block_hash: block.header().hash(T::SystemHash::hasher()),
+                        block_number: block.header().block_number.as_u64(),
+                        actual_fee: actual_fee.<span class="number">0</span>.into(),
                     }
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -1674,28 +1722,31 @@
         /// are being whitelisted and marked as valid.
         </span><span class="kw">fn </span>validate_unsigned(_source: TransactionSource, call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call) -&gt; TransactionValidity {
             <span class="comment">// TODO: Call `__validate__` entrypoint of the contract. #69
-
+            // The priority right now is the max u64 - nonce because for unsigned transactions we need to
+            // determine an absolute priority. For now we use that for the benchmark (lowest nonce goes first)
+            // otherwise we have a nonce error and everything fails.
+            // Once we have a real fee market this is where we&#39;ll chose the most profitable transaction.
             </span><span class="kw">match </span>call {
                 Call::invoke { transaction } =&gt; ValidTransaction::with_tag_prefix(<span class="string">&quot;starknet&quot;</span>)
-                    .priority(T::UnsignedPriority::get())
+                    .priority(u64::MAX - (TryInto::&lt;u64&gt;::try_into(transaction.nonce)).unwrap())
                     .and_provides((transaction.sender_address, transaction.nonce))
                     .longevity(<span class="number">64_u64</span>)
                     .propagate(<span class="bool-val">true</span>)
                     .build(),
                 Call::declare { transaction } =&gt; ValidTransaction::with_tag_prefix(<span class="string">&quot;starknet&quot;</span>)
-                    .priority(T::UnsignedPriority::get())
+                    .priority(u64::MAX - (TryInto::&lt;u64&gt;::try_into(transaction.nonce)).unwrap())
                     .and_provides((transaction.sender_address, transaction.nonce))
                     .longevity(<span class="number">64_u64</span>)
                     .propagate(<span class="bool-val">true</span>)
                     .build(),
                 Call::deploy_account { transaction } =&gt; ValidTransaction::with_tag_prefix(<span class="string">&quot;starknet&quot;</span>)
-                    .priority(T::UnsignedPriority::get())
+                    .priority(u64::MAX - (TryInto::&lt;u64&gt;::try_into(transaction.nonce)).unwrap())
                     .and_provides((transaction.sender_address, transaction.nonce))
                     .longevity(<span class="number">64_u64</span>)
                     .propagate(<span class="bool-val">true</span>)
                     .build(),
                 Call::consume_l1_message { transaction } =&gt; ValidTransaction::with_tag_prefix(<span class="string">&quot;starknet&quot;</span>)
-                    .priority(T::UnsignedPriority::get())
+                    .priority(u64::MAX - (TryInto::&lt;u64&gt;::try_into(transaction.nonce)).unwrap())
                     .and_provides((transaction.sender_address, transaction.nonce))
                     .longevity(<span class="number">64_u64</span>)
                     .propagate(<span class="bool-val">true</span>)
@@ -1714,8 +1765,8 @@
     ///
     /// The current block hash.
     </span><span class="attr">#[inline(always)]
-    </span><span class="kw">pub fn </span>current_block_hash() -&gt; H256 {
-        <span class="self">Self</span>::current_block().header().hash()
+    </span><span class="kw">pub fn </span>current_block_hash() -&gt; Felt252Wrapper {
+        <span class="self">Self</span>::current_block().header().hash(T::SystemHash::hasher())
     }
 
     <span class="doccomment">/// Get the block hash of the previous block.
@@ -1728,8 +1779,12 @@
     ///
     /// The block hash of the parent (previous) block or 0 if the current block is 0.
     </span><span class="attr">#[inline(always)]
-    </span><span class="kw">pub fn </span>parent_block_hash(current_block_number: <span class="kw-2">&amp;</span>U256) -&gt; H256 {
-        <span class="kw">if </span>current_block_number == <span class="kw-2">&amp;</span>U256::zero() { H256::zero() } <span class="kw">else </span>{ <span class="self">Self</span>::block_hash(current_block_number - <span class="number">1</span>) }
+    </span><span class="kw">pub fn </span>parent_block_hash(current_block_number: <span class="kw-2">&amp;</span>U256) -&gt; Felt252Wrapper {
+        <span class="kw">if </span>current_block_number == <span class="kw-2">&amp;</span>U256::zero() {
+            Felt252Wrapper::ZERO
+        } <span class="kw">else </span>{
+            <span class="self">Self</span>::block_hash(current_block_number - <span class="number">1</span>)
+        }
     }
 
     <span class="doccomment">/// Get the current block timestamp.
@@ -1757,9 +1812,9 @@
     <span class="doccomment">/// Call a smart contract function.
     </span><span class="kw">pub fn </span>call_contract(
         address: ContractAddressWrapper,
-        function_selector: H256,
-        calldata: Vec&lt;U256&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;U256&gt;, DispatchError&gt; {
+        function_selector: Felt252Wrapper,
+        calldata: Vec&lt;Felt252Wrapper&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Felt252Wrapper&gt;, DispatchError&gt; {
         <span class="comment">// Get current block
         </span><span class="kw">let </span>block = <span class="self">Self</span>::current_block();
         <span class="comment">// Get fee token address
@@ -1779,7 +1834,7 @@
         <span class="kw">match </span>entrypoint.execute(<span class="kw-2">&amp;mut </span>BlockifierStateAdapter::&lt;T&gt;::default(), block, fee_token_address) {
             <span class="prelude-val">Ok</span>(v) =&gt; {
                 <span class="macro">log!</span>(debug, <span class="string">&quot;Transaction executed successfully: {:?}&quot;</span>, v);
-                <span class="kw">let </span>result = v.execution.retdata.<span class="number">0</span>.iter().map(|x| U256::from(x.<span class="number">0</span>)).collect();
+                <span class="kw">let </span>result = v.execution.retdata.<span class="number">0</span>.iter().map(|x| (<span class="kw-2">*</span>x).into()).collect();
                 <span class="prelude-val">Ok</span>(result)
             }
             <span class="prelude-val">Err</span>(e) =&gt; {
@@ -1793,7 +1848,7 @@
     </span><span class="kw">pub fn </span>get_storage_at(
         contract_address: ContractAddressWrapper,
         key: StorageKeyWrapper,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;U256, DispatchError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Felt252Wrapper, DispatchError&gt; {
         <span class="comment">// Get state
         </span><span class="macro">ensure!</span>(ContractClassHashes::&lt;T&gt;::contains_key(contract_address), Error::&lt;T&gt;::ContractNotFound);
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::storage((contract_address, key)))
@@ -1809,7 +1864,7 @@
         </span><span class="kw">let </span>parent_block_hash = <span class="self">Self</span>::parent_block_hash(<span class="kw-2">&amp;</span>block_number);
         <span class="kw">let </span>pending = <span class="self">Self</span>::pending();
 
-        <span class="kw">let </span>global_state_root = U256::zero();
+        <span class="kw">let </span>global_state_root = Felt252Wrapper::ZERO;
         <span class="comment">// TODO: use the real sequencer address (our own address)
         // FIXME #243
         </span><span class="kw">let </span>sequencer_address = SEQUENCER_ADDRESS;
@@ -1818,7 +1873,7 @@
         <span class="kw">let </span>transactions: Vec&lt;Transaction&gt; = pending.into_iter().map(|(transaction, <span class="kw">_</span>)| transaction).collect();
         <span class="kw">let </span>events = <span class="self">Self</span>::pending_events();
         <span class="kw">let </span>(transaction_commitment, event_commitment) =
-            commitment::calculate_commitments::&lt;PedersenHasher&gt;(<span class="kw-2">&amp;</span>transactions, <span class="kw-2">&amp;</span>events);
+            commitment::calculate_commitments::&lt;T::SystemHash&gt;(<span class="kw-2">&amp;</span>transactions, <span class="kw-2">&amp;</span>events);
         <span class="kw">let </span>protocol_version = <span class="prelude-val">None</span>;
         <span class="kw">let </span>extra_data = <span class="prelude-val">None</span>;
 
@@ -1827,23 +1882,24 @@
                 parent_block_hash,
                 block_number,
                 global_state_root,
-                sequencer_address,
+                Felt252Wrapper::try_from(<span class="kw-2">&amp;</span>sequencer_address).unwrap(),
                 block_timestamp,
                 transaction_count,
-                transaction_commitment,
+                transaction_commitment.try_into().unwrap(),
                 events.len() <span class="kw">as </span>u128,
-                event_commitment,
+                event_commitment.try_into().unwrap(),
                 protocol_version,
                 extra_data,
             ),
-            <span class="comment">// Safe because `transactions` is build form the `pending` bounded vec,
+            <span class="comment">// Safe because `transactions` is build from the `pending` bounded vec,
             // which has the same size limit of `MaxTransactions`
             </span>BlockTransactions::Full(BoundedVec::try_from(transactions).unwrap()),
         );
         <span class="comment">// Save the current block.
         </span>CurrentBlock::&lt;T&gt;::put(block.clone());
         <span class="comment">// Save the block number &lt;&gt; hash mapping.
-        </span>BlockHash::&lt;T&gt;::insert(block_number, block.header().hash());
+        </span><span class="kw">let </span>blockhash = block.header().hash(T::SystemHash::hasher());
+        BlockHash::&lt;T&gt;::insert(block_number, blockhash);
         Pending::&lt;T&gt;::kill();
         PendingEvents::&lt;T&gt;::kill();
 
@@ -1900,6 +1956,38 @@
 
         PendingEvents::&lt;T&gt;::try_append(sn_event.clone()).map_err(|<span class="kw">_</span>| EventError::TooManyEvents)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(sn_event)
+    }
+
+    <span class="doccomment">/// Estimate the fee associated with transaction
+    </span><span class="kw">pub fn </span>estimate_fee(transaction: Transaction) -&gt; <span class="prelude-ty">Result</span>&lt;(u64, u64), DispatchError&gt; {
+        <span class="comment">// Check if contract is deployed
+        </span><span class="macro">ensure!</span>(ContractClassHashes::&lt;T&gt;::contains_key(transaction.sender_address), Error::&lt;T&gt;::AccountNotDeployed);
+
+        <span class="kw">match </span>transaction.execute(
+            <span class="kw-2">&amp;mut </span>BlockifierStateAdapter::&lt;T&gt;::default(),
+            <span class="self">Self</span>::current_block(),
+            TxType::Invoke,
+            <span class="prelude-val">None</span>,
+            <span class="self">Self</span>::fee_token_address(),
+        ) {
+            <span class="prelude-val">Ok</span>(v) =&gt; {
+                <span class="macro">log!</span>(debug, <span class="string">&quot;Transaction executed successfully: {:?}&quot;</span>, v);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(gas_usage) = v.actual_resources.get(<span class="string">&quot;l1_gas_usage&quot;</span>) {
+                    <span class="prelude-val">Ok</span>((v.actual_fee.<span class="number">0 </span><span class="kw">as </span>u64, <span class="kw-2">*</span>gas_usage <span class="kw">as </span>u64))
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Err</span>(Error::&lt;T&gt;::TransactionExecutionFailed.into())
+                }
+            }
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">log!</span>(error, <span class="string">&quot;Transaction execution failed: {:?}&quot;</span>, e);
+                <span class="prelude-val">Err</span>(Error::&lt;T&gt;::TransactionExecutionFailed.into())
+            }
+        }
+    }
+
+    <span class="doccomment">/// Returns the hasher used by the runtime.
+    </span><span class="kw">pub fn </span>get_system_hash() -&gt; T::SystemHash {
+        T::SystemHash::hasher()
     }
 }
 </code></pre></div>

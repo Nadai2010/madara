@@ -708,7 +708,6 @@
 <a href="#708" id="708">708</a>
 <a href="#709" id="709">709</a>
 <a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Starknet transaction related functionality.
 /// Constants related to transactions.
 </span><span class="kw">pub mod </span>constants;
@@ -728,7 +727,7 @@
 <span class="kw">use </span>blockifier::transaction::transaction_utils::verify_no_calls_to_other_contracts;
 <span class="kw">use </span>blockifier::transaction::transactions::Executable;
 <span class="kw">use </span>frame_support::BoundedVec;
-<span class="kw">use </span>sp_core::{H256, U256};
+<span class="kw">use </span>sp_core::U256;
 <span class="kw">use </span>starknet_api::api_core::{ContractAddress <span class="kw">as </span>StarknetContractAddress, EntryPointSelector, Nonce};
 <span class="kw">use </span>starknet_api::deprecated_contract_class::EntryPointType;
 <span class="kw">use </span>starknet_api::hash::{StarkFelt, StarkHash};
@@ -744,9 +743,8 @@
     TransactionExecutionInfoWrapper, TransactionExecutionResultWrapper, TransactionReceiptWrapper,
     TransactionValidationErrorWrapper, TransactionValidationResultWrapper, TxType,
 };
-<span class="kw">use </span><span class="kw">crate</span>::block::serialize::SerializeBlockContext;
 <span class="kw">use </span><span class="kw">crate</span>::block::Block <span class="kw">as </span>StarknetBlock;
-<span class="kw">use </span><span class="kw">crate</span>::execution::types::{CallEntryPointWrapper, ContractAddressWrapper, ContractClassWrapper};
+<span class="kw">use </span><span class="kw">crate</span>::execution::types::{CallEntryPointWrapper, ContractAddressWrapper, ContractClassWrapper, Felt252Wrapper};
 <span class="kw">use </span><span class="kw">crate</span>::fees::{<span class="self">self</span>, charge_fee};
 <span class="kw">use </span><span class="kw">crate</span>::state::StateChanges;
 
@@ -759,8 +757,8 @@
     /// * `data` - Event data.
     /// * `from_address` - Contract Address where the event was emitted from.
     </span><span class="kw">pub fn </span>new(
-        keys: BoundedVec&lt;H256, MaxArraySize&gt;,
-        data: BoundedVec&lt;H256, MaxArraySize&gt;,
+        keys: BoundedVec&lt;Felt252Wrapper, MaxArraySize&gt;,
+        data: BoundedVec&lt;Felt252Wrapper, MaxArraySize&gt;,
         from_address: ContractAddressWrapper,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ keys, data, from_address }
@@ -784,8 +782,8 @@
 <span class="doccomment">/// Builder pattern for `EventWrapper`.
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">pub struct </span>EventBuilder {
-    keys: vec::Vec&lt;H256&gt;,
-    data: vec::Vec&lt;H256&gt;,
+    keys: vec::Vec&lt;Felt252Wrapper&gt;,
+    data: vec::Vec&lt;Felt252Wrapper&gt;,
     from_address: <span class="prelude-ty">Option</span>&lt;StarknetContractAddress&gt;,
 }
 
@@ -795,7 +793,7 @@
     /// # Arguments
     ///
     /// * `keys` - Event keys.
-    </span><span class="kw">pub fn </span>with_keys(<span class="kw-2">mut </span><span class="self">self</span>, keys: vec::Vec&lt;H256&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>with_keys(<span class="kw-2">mut </span><span class="self">self</span>, keys: vec::Vec&lt;Felt252Wrapper&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.keys = keys;
         <span class="self">self
     </span>}
@@ -805,7 +803,7 @@
     /// # Arguments
     ///
     /// * `data` - Event data.
-    </span><span class="kw">pub fn </span>with_data(<span class="kw-2">mut </span><span class="self">self</span>, data: vec::Vec&lt;H256&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>with_data(<span class="kw-2">mut </span><span class="self">self</span>, data: vec::Vec&lt;Felt252Wrapper&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.data = data;
         <span class="self">self
     </span>}
@@ -826,8 +824,10 @@
     ///
     /// * `event_content` - Event content retrieved from the `CallInfo`.
     </span><span class="kw">pub fn </span>with_event_content(<span class="kw-2">mut </span><span class="self">self</span>, event_content: EventContent) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.keys = event_content.keys.iter().map(|k| H256::from_slice(k.<span class="number">0</span>.bytes())).collect::&lt;vec::Vec&lt;H256&gt;&gt;();
-        <span class="self">self</span>.data = event_content.data.<span class="number">0</span>.iter().map(|d| H256::from_slice(d.bytes())).collect::&lt;vec::Vec&lt;H256&gt;&gt;();
+        <span class="comment">// TODO: what&#39;s the proper why to handle errors in a map? We should return Return&lt;Self,
+        // Felt252WrapperError&gt; instead?
+        </span><span class="self">self</span>.keys = event_content.keys.iter().map(|k| k.<span class="number">0</span>.into()).collect::&lt;vec::Vec&lt;Felt252Wrapper&gt;&gt;();
+        <span class="self">self</span>.data = event_content.data.<span class="number">0</span>.iter().map(|d| Felt252Wrapper::from(<span class="kw-2">*</span>d)).collect::&lt;vec::Vec&lt;Felt252Wrapper&gt;&gt;();
         <span class="self">self
     </span>}
 
@@ -850,13 +850,11 @@
 
 <span class="kw">impl </span>Default <span class="kw">for </span>EventWrapper {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>one = H256::from_slice(<span class="kw-2">&amp;</span>[
-            <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>,
-        ]);
+        <span class="kw">let </span>one = Felt252Wrapper::ONE;
         <span class="self">Self </span>{
             keys: BoundedVec::try_from(<span class="macro">vec!</span>[one, one]).unwrap(),
             data: BoundedVec::try_from(<span class="macro">vec!</span>[one, one]).unwrap(),
-            from_address: ContractAddressWrapper::from(one),
+            from_address: one,
         }
     }
 }
@@ -865,8 +863,7 @@
 </span><span class="kw">impl </span>TryInto&lt;TransactionReceiptWrapper&gt; <span class="kw">for </span><span class="kw-2">&amp;</span>TransactionReceipt {
     <span class="kw">type </span>Error = EventError;
 
-    <span class="comment">// TODO: add block hash and block number (#252)
-    </span><span class="kw">fn </span>try_into(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TransactionReceiptWrapper, <span class="self">Self</span>::Error&gt; {
+    <span class="kw">fn </span>try_into(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TransactionReceiptWrapper, <span class="self">Self</span>::Error&gt; {
         <span class="kw">let </span>_events: <span class="prelude-ty">Result</span>&lt;vec::Vec&lt;EventWrapper&gt;, EventError&gt; = <span class="self">self
             </span>.output
             .events()
@@ -877,8 +874,8 @@
             .collect();
 
         <span class="prelude-val">Ok</span>(TransactionReceiptWrapper {
-            transaction_hash: H256::from_slice(<span class="self">self</span>.transaction_hash.<span class="number">0</span>.bytes()),
-            actual_fee: U256::from(<span class="self">self</span>.output.actual_fee().<span class="number">0</span>),
+            transaction_hash: <span class="self">self</span>.transaction_hash.<span class="number">0</span>.into(),
+            actual_fee: U256::from(<span class="self">self</span>.output.actual_fee().<span class="number">0</span>).try_into().expect(<span class="string">&quot;Actual fee too large for felt252.&quot;</span>),
             tx_type: <span class="kw">match </span><span class="self">self</span>.output {
                 TransactionOutput::Declare(<span class="kw">_</span>) =&gt; TxType::Declare,
                 TransactionOutput::DeployAccount(<span class="kw">_</span>) =&gt; TxType::DeployAccount,
@@ -886,6 +883,8 @@
                 TransactionOutput::L1Handler(<span class="kw">_</span>) =&gt; TxType::L1Handler,
                 <span class="kw">_ </span>=&gt; TxType::Invoke,
             },
+            block_hash: <span class="self">self</span>.block_hash.<span class="number">0</span>.into(),
+            block_number: <span class="self">self</span>.block_number.<span class="number">0</span>,
             events: BoundedVec::try_from(_events<span class="question-mark">?</span>).map_err(|<span class="kw">_</span>| EventError::TooManyEvents)<span class="question-mark">?</span>,
         })
     }
@@ -899,14 +898,14 @@
         <span class="kw">let </span>entrypoint: CallEntryPoint = <span class="self">self</span>.call_entrypoint.clone().try_into()<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(DeployAccountTransaction {
-            transaction_hash: TransactionHash(StarkFelt::new(<span class="self">self</span>.hash.<span class="number">0</span>)<span class="question-mark">?</span>),
+            transaction_hash: TransactionHash(StarkFelt::new(<span class="self">self</span>.hash.into())<span class="question-mark">?</span>),
             max_fee: Fee(<span class="number">2</span>),
             version: TransactionVersion(StarkFelt::new(U256::from(<span class="self">self</span>.version).into())<span class="question-mark">?</span>),
             signature: TransactionSignature(
-                <span class="self">self</span>.signature.clone().into_inner().iter().map(|x| StarkFelt::new(x.<span class="number">0</span>).unwrap()).collect(),
+                <span class="self">self</span>.signature.clone().into_inner().iter().map(|x| StarkFelt::new((<span class="kw-2">*</span>x).into()).unwrap()).collect(),
             ),
             nonce: Nonce(StarkFelt::new(<span class="self">self</span>.nonce.into())<span class="question-mark">?</span>),
-            contract_address: StarknetContractAddress::try_from(StarkFelt::new(<span class="self">self</span>.sender_address)<span class="question-mark">?</span>)<span class="question-mark">?</span>,
+            contract_address: StarknetContractAddress::try_from(StarkFelt::new(<span class="self">self</span>.sender_address.into())<span class="question-mark">?</span>)<span class="question-mark">?</span>,
             class_hash: entrypoint.class_hash.unwrap_or_default(),
             constructor_calldata: entrypoint.calldata,
             contract_address_salt: ContractAddressSalt(StarkFelt::new(
@@ -924,14 +923,14 @@
         <span class="kw">let </span>entrypoint: CallEntryPoint = <span class="self">self</span>.call_entrypoint.clone().try_into()<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(L1HandlerTransaction {
-            transaction_hash: TransactionHash(StarkFelt::new(<span class="self">self</span>.hash.<span class="number">0</span>)<span class="question-mark">?</span>),
+            transaction_hash: TransactionHash(StarkFelt::new(<span class="self">self</span>.hash.into())<span class="question-mark">?</span>),
             version: TransactionVersion(StarkFelt::new(U256::from(<span class="self">self</span>.version).into())<span class="question-mark">?</span>),
             nonce: Nonce(StarkFelt::new(<span class="self">self</span>.nonce.into())<span class="question-mark">?</span>),
-            contract_address: StarknetContractAddress::try_from(StarkFelt::new(<span class="self">self</span>.sender_address)<span class="question-mark">?</span>)<span class="question-mark">?</span>,
+            contract_address: StarknetContractAddress::try_from(StarkFelt::new(<span class="self">self</span>.sender_address.into())<span class="question-mark">?</span>)<span class="question-mark">?</span>,
             calldata: entrypoint.calldata,
-            entry_point_selector: EntryPointSelector(StarkHash::new(
-                <span class="kw-2">*</span><span class="self">self</span>.call_entrypoint.entrypoint_selector.unwrap_or_default().as_fixed_bytes(),
-            )<span class="question-mark">?</span>),
+            entry_point_selector: EntryPointSelector(StarkHash::new(&lt;[u8; <span class="number">32</span>]&gt;::from(
+                <span class="self">self</span>.call_entrypoint.entrypoint_selector.unwrap_or_default(),
+            ))<span class="question-mark">?</span>),
         })
     }
 }
@@ -944,13 +943,13 @@
         <span class="kw">let </span>entrypoint: CallEntryPoint = <span class="self">self</span>.call_entrypoint.clone().try_into()<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(InvokeTransactionV1 {
-            transaction_hash: TransactionHash(StarkFelt::new(<span class="self">self</span>.hash.<span class="number">0</span>)<span class="question-mark">?</span>),
+            transaction_hash: TransactionHash(StarkFelt::new(<span class="self">self</span>.hash.into())<span class="question-mark">?</span>),
             max_fee: Fee(<span class="number">2</span>),
             signature: TransactionSignature(
-                <span class="self">self</span>.signature.clone().into_inner().iter().map(|x| StarkFelt::new(x.<span class="number">0</span>).unwrap()).collect(),
+                <span class="self">self</span>.signature.clone().into_inner().iter().map(|x| StarkFelt::new((<span class="kw-2">*</span>x).into()).unwrap()).collect(),
             ),
             nonce: Nonce(StarkFelt::new(<span class="self">self</span>.nonce.into())<span class="question-mark">?</span>),
-            sender_address: StarknetContractAddress::try_from(StarkFelt::new(<span class="self">self</span>.sender_address)<span class="question-mark">?</span>)<span class="question-mark">?</span>,
+            sender_address: StarknetContractAddress::try_from(StarkFelt::new(<span class="self">self</span>.sender_address.into())<span class="question-mark">?</span>)<span class="question-mark">?</span>,
             calldata: entrypoint.calldata,
         })
     }
@@ -964,13 +963,13 @@
         <span class="kw">let </span>entrypoint: CallEntryPoint = <span class="self">self</span>.call_entrypoint.clone().try_into()<span class="question-mark">?</span>;
 
         <span class="kw">let </span>tx = DeclareTransactionV0V1 {
-            transaction_hash: TransactionHash(StarkFelt::new(<span class="self">self</span>.hash.<span class="number">0</span>)<span class="question-mark">?</span>),
+            transaction_hash: TransactionHash(StarkFelt::new(<span class="self">self</span>.hash.into())<span class="question-mark">?</span>),
             max_fee: Fee(<span class="number">2</span>),
             signature: TransactionSignature(
-                <span class="self">self</span>.signature.clone().into_inner().iter().map(|x| StarkFelt::new(x.<span class="number">0</span>).unwrap()).collect(),
+                <span class="self">self</span>.signature.clone().into_inner().iter().map(|x| StarkFelt::new((<span class="kw-2">*</span>x).into()).unwrap()).collect(),
             ),
             nonce: Nonce(StarkFelt::new(<span class="self">self</span>.nonce.into())<span class="question-mark">?</span>),
-            sender_address: StarknetContractAddress::try_from(StarkFelt::new(<span class="self">self</span>.sender_address)<span class="question-mark">?</span>)<span class="question-mark">?</span>,
+            sender_address: StarknetContractAddress::try_from(StarkFelt::new(<span class="self">self</span>.sender_address.into())<span class="question-mark">?</span>)<span class="question-mark">?</span>,
             class_hash: entrypoint.class_hash.unwrap_or_default(),
         };
 
@@ -988,17 +987,19 @@
     <span class="doccomment">/// Creates a new instance of a transaction.
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>new(
+        tx_type: TxType,
         version: u8,
-        hash: H256,
-        signature: BoundedVec&lt;H256, MaxArraySize&gt;,
+        hash: Felt252Wrapper,
+        signature: BoundedVec&lt;Felt252Wrapper, MaxArraySize&gt;,
         sender_address: ContractAddressWrapper,
-        nonce: U256,
+        nonce: Felt252Wrapper,
         call_entrypoint: CallEntryPointWrapper,
         contract_class: <span class="prelude-ty">Option</span>&lt;ContractClassWrapper&gt;,
         contract_address_salt: <span class="prelude-ty">Option</span>&lt;U256&gt;,
-        max_fee: U256,
+        max_fee: Felt252Wrapper,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            tx_type,
             version,
             hash,
             signature,
@@ -1012,7 +1013,7 @@
     }
 
     <span class="doccomment">/// Creates a new instance of a transaction without signature.
-    </span><span class="kw">pub fn </span>from_tx_hash(hash: H256) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>from_tx_hash(hash: Felt252Wrapper) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ hash, ..<span class="self">Self</span>::default() }
     }
 
@@ -1163,11 +1164,7 @@
         contract_class: <span class="prelude-ty">Option</span>&lt;ContractClass&gt;,
         fee_token_address: ContractAddressWrapper,
     ) -&gt; TransactionExecutionResultWrapper&lt;TransactionExecutionInfoWrapper&gt; {
-        <span class="comment">// Create the block context.
-        // TODO: don&#39;t do that.
-        // FIXME: https://github.com/keep-starknet-strange/madara/issues/330
-        </span><span class="kw">let </span>block_context = BlockContext::try_serialize(block.header().clone(), fee_token_address)
-            .map_err(|<span class="kw">_</span>| TransactionExecutionErrorWrapper::BlockContextSerializationError)<span class="question-mark">?</span>;
+        <span class="kw">let </span>block_context = block.header().clone().into_block_context(fee_token_address);
 
         <span class="comment">// Initialize the execution resources.
         </span><span class="kw">let </span>execution_resources = <span class="kw-2">&amp;mut </span>ExecutionResources::default();
@@ -1253,7 +1250,7 @@
         )<span class="question-mark">?</span>;
         <span class="kw">let </span>(actual_fee, fee_transfer_call_info) = charge_fee(state, <span class="kw-2">&amp;</span>block_context, <span class="kw-2">&amp;</span>account_context, <span class="kw-2">&amp;</span>tx_resources)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(TransactionExecutionInfoWrapper {
-            validate_call_info: <span class="prelude-val">None</span>,
+            validate_call_info,
             execute_call_info,
             fee_transfer_call_info,
             actual_fee,
@@ -1393,19 +1390,18 @@
 
 <span class="kw">impl </span>Default <span class="kw">for </span>Transaction {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>one = H256::from_slice(<span class="kw-2">&amp;</span>[
-            <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>,
-        ]);
+        <span class="kw">let </span>one = Felt252Wrapper::ONE;
         <span class="self">Self </span>{
+            tx_type: TxType::Invoke,
             version: <span class="number">1_u8</span>,
             hash: one,
             signature: BoundedVec::try_from(<span class="macro">vec!</span>[one, one]).unwrap(),
-            nonce: U256::default(),
+            nonce: Felt252Wrapper::default(),
             sender_address: ContractAddressWrapper::default(),
             call_entrypoint: CallEntryPointWrapper::default(),
             contract_class: <span class="prelude-val">None</span>,
             contract_address_salt: <span class="prelude-val">None</span>,
-            max_fee: U256::from(u128::MAX),
+            max_fee: Felt252Wrapper::from(u128::MAX),
         }
     }
 }
@@ -1413,9 +1409,11 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>TransactionReceiptWrapper {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            transaction_hash: H256::default(),
-            actual_fee: U256::default(),
+            transaction_hash: Felt252Wrapper::default(),
+            actual_fee: Felt252Wrapper::default(),
             tx_type: TxType::Invoke,
+            block_hash: Felt252Wrapper::default(),
+            block_number: <span class="number">0_u64</span>,
             events: BoundedVec::try_from(<span class="macro">vec!</span>[EventWrapper::default(), EventWrapper::default()]).unwrap(),
         }
     }
